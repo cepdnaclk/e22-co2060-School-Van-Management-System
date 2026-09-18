@@ -151,16 +151,49 @@ export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) =
     }
 
     if (demoUsers.some((u) => u.id === user.id)) {
-      return res.json({
+      const responseBody: any = {
         user: {
           id: user.id,
           email: user.email,
           role: user.role,
-        },
-      });
+        }
+      };
+
+      if (user.role === "driver") {
+        const driverRes = await pool.query("SELECT id FROM drivers WHERE user_id = $1", [user.id]);
+        if (driverRes.rows.length > 0) {
+          const dId = driverRes.rows[0].id;
+          responseBody.driverId = dId;
+          const journeyRes = await pool.query(
+            "SELECT id FROM journeys WHERE driver_id = $1 AND completed_at IS NULL LIMIT 1",
+            [dId]
+          );
+          if (journeyRes.rows.length > 0) {
+            responseBody.activeJourneyId = journeyRes.rows[0].id;
+          }
+        }
+      }
+
+      return res.json(responseBody);
     }
 
-    res.json({ user });
+    const responseBody: any = { user };
+    if (user.role === "driver") {
+      const driverRes = await pool.query("SELECT id FROM drivers WHERE user_id = $1", [user.id]);
+      if (driverRes.rows.length > 0) {
+        const dId = driverRes.rows[0].id;
+        responseBody.driverId = dId;
+        const journeyRes = await pool.query(
+          "SELECT id FROM journeys WHERE driver_id = $1 AND completed_at IS NULL LIMIT 1",
+          [dId]
+        );
+        if (journeyRes.rows.length > 0) {
+          responseBody.activeJourneyId = journeyRes.rows[0].id;
+        }
+      }
+    }
+
+    res.json(responseBody);
   } catch (error: any) {
     res.status(500).json({ error: "Server error profile fetch" });
   }

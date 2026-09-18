@@ -81,8 +81,18 @@ export const updateChild = async (id: number, childData: Partial<Child>): Promis
     return response.data;
 };
 
-export const markAbsent = async (id: number, date: string, reason?: string) => {
-    const response = await axios.post(`${API_BASE_URL}/children/${id}/absent`, { date, reason }, { headers: getAuthHeader() });
+export const markAbsent = async (id: number, date: string, sessionType: string, reason?: string) => {
+    const response = await axios.post(`${API_BASE_URL}/children/${id}/absent`, { date, session_type: sessionType, reason }, { headers: getAuthHeader() });
+    return response.data;
+};
+
+export const getAbsences = async (studentId: number): Promise<any[]> => {
+    const response = await axios.get(`${API_BASE_URL}/children/${studentId}/absences`, { headers: getAuthHeader() });
+    return response.data;
+};
+
+export const cancelAbsence = async (studentId: number, date: string): Promise<any> => {
+    const response = await axios.delete(`${API_BASE_URL}/children/${studentId}/absences/${date}`, { headers: getAuthHeader() });
     return response.data;
 };
 

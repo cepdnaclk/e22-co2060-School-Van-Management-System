@@ -133,6 +133,8 @@ export default function SidebarLayout() {
             <>
               <SectionLabel label="Operations" collapsed={isSidebarCollapsed} />
               <NavItem to="/admin/dashboard" icon={<LayoutDashboard size={20} />} label="Overview" collapsed={isSidebarCollapsed} onClick={closeMobileSidebar} />
+              <NavItem to="/admin/users" icon={<Users size={20} />} label="User Management" collapsed={isSidebarCollapsed} onClick={closeMobileSidebar} />
+              <NavItem to="/admin/vehicles" icon={<Truck size={20} />} label="Vehicles" collapsed={isSidebarCollapsed} onClick={closeMobileSidebar} />
               <NavItem to="/routes" icon={<Navigation size={20} />} label="Route Map" collapsed={isSidebarCollapsed} onClick={closeMobileSidebar} />
             </>
           )}

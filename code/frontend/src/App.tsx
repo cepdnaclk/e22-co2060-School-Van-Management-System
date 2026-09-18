@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import UserManagement from "./pages/admin/UserManagement";
+import VehicleManagement from "./pages/admin/VehicleManagement";
 import AdminLoginPage from "./pages/auth/AdminLoginPage";
 import RoutesPage from "./pages/Routes";
 import TrackingPage from "./pages/parent/TrackingPage";
@@ -50,6 +52,18 @@ export default function App() {
             <Route path="/admin/dashboard" element={
               <ProtectedRoute allowedRoles={["admin"]}>
                 <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            
+            {/* admin management pages */}
+            <Route path="/admin/users" element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <UserManagement />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/vehicles" element={
+              <ProtectedRoute allowedRoles={["admin"]}>
+                <VehicleManagement />
               </ProtectedRoute>
             } />
             

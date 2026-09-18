@@ -103,7 +103,7 @@ export default function TrackingPage() {
     if (!window.confirm("Broadcast absence to driver for current cycle?")) return;
     try {
       const today = new Date().toISOString().split('T')[0];
-      await markAbsent(selectedChildId, today, "Parent App Override");
+      await markAbsent(selectedChildId, today, "both", "Parent App Override");
       alert("Absence broadcast successful.");
     } catch (err) {
       alert("Broadcast failure. Retrying...");

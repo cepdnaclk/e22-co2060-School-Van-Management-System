@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { AuthenticatedRequest } from "../middleware/authMiddleware";
 import * as parentModel from "../models/parentModel";
+import { emitToRoom, journeyRoom } from "../services/socketService";
 
 export async function getChildren(req: AuthenticatedRequest, res: Response) {
   try {
@@ -66,7 +67,7 @@ export async function updateChild(req: AuthenticatedRequest, res: Response) {
 export async function markAbsent(req: AuthenticatedRequest, res: Response) {
   try {
     const studentId = parseInt(req.params.id as string, 10);
-    const { date, reason } = req.body;
+    const { date, session_type, reason } = req.body;
 
     if (!date) {
       return res.status(400).json({ error: "Date is required" });
@@ -78,10 +79,71 @@ export async function markAbsent(req: AuthenticatedRequest, res: Response) {
       return res.status(403).json({ error: "Forbidden: Not your child" });
     }
 
-    const absence = await parentModel.markChildAbsent(studentId, date, reason);
+    const absence = await parentModel.markChildAbsent(studentId, date, session_type || 'both', reason);
+
+    // Notify driver if child has an active journey
+    try {
+      const journeyId = await parentModel.getActiveJourneyForStudent(studentId);
+      if (journeyId) {
+        emitToRoom(journeyRoom(journeyId), "journey:status_change", null);
+      }
+    } catch (socketErr) {
+      console.error("Socket notification failed:", socketErr);
+    }
+
     res.status(201).json(absence);
   } catch (error: any) {
     res.status(500).json({ error: "Failed to mark absent", details: error.message });
+  }
+}
+
+export async function getAbsences(req: AuthenticatedRequest, res: Response) {
+  try {
+    const studentId = parseInt(req.params.id as string, 10);
+
+    const parentId = req.user!.id;
+    const children = await parentModel.getChildrenByParentId(parentId);
+    if (!children.find(c => c.id === studentId)) {
+      return res.status(403).json({ error: "Forbidden: Not your child" });
+    }
+
+    const absences = await parentModel.getChildrenAbsences(studentId);
+    res.json(absences);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to fetch absences", details: error.message });
+  }
+}
+
+export async function cancelAbsence(req: AuthenticatedRequest, res: Response) {
+  try {
+    const studentId = parseInt(req.params.id as string, 10);
+    const { date } = req.params;
+
+    if (!date) {
+      return res.status(400).json({ error: "Date is required" });
+    }
+
+    const parentId = req.user!.id;
+    const children = await parentModel.getChildrenByParentId(parentId);
+    if (!children.find(c => c.id === studentId)) {
+      return res.status(403).json({ error: "Forbidden: Not your child" });
+    }
+
+    const canceled = await parentModel.deleteChildAbsence(studentId, date as string);
+
+    // Notify driver if child has an active journey
+    try {
+      const journeyId = await parentModel.getActiveJourneyForStudent(studentId);
+      if (journeyId) {
+        emitToRoom(journeyRoom(journeyId), "journey:status_change", null);
+      }
+    } catch (socketErr) {
+      console.error("Socket notification failed:", socketErr);
+    }
+
+    res.json(canceled);
+  } catch (error: any) {
+    res.status(500).json({ error: "Failed to cancel absence", details: error.message });
   }
 }
 

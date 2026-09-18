@@ -5,9 +5,12 @@ import {
     updateChild, 
     getAvailableRoutes,
     Child, 
-    Route 
+    Route,
+    getAbsences,
+    markAbsent,
+    cancelAbsence
 } from "../../services/parentService";
-import { UserPlus, UserCircle, Plus, ChevronRight, Edit3, MapPin, School, ShieldCheck, ArrowRight, X, Navigation, Truck, Info } from "lucide-react";
+import { UserPlus, UserCircle, Plus, ChevronRight, Edit3, MapPin, School, ShieldCheck, X, Navigation, Truck, Info, Calendar } from "lucide-react";
 import StopSelectorMap from "../../components/parent/StopSelectorMap";
 
 export default function ChildManagement() {
@@ -17,6 +20,13 @@ export default function ChildManagement() {
     const [editingChild, setEditingChild] = useState<Child | null>(null);
     const [showForm, setShowForm] = useState(false);
     const [availableRoutes, setAvailableRoutes] = useState<Route[]>([]);
+
+    // Absence modal state
+    const [absenceModalChild, setAbsenceModalChild] = useState<Child | null>(null);
+    const [absences, setAbsences] = useState<any[]>([]);
+    const [absenceForm, setAbsenceForm] = useState({ date: "", session_type: "both", reason: "" });
+    const [absenceLoading, setAbsenceLoading] = useState(false);
+    const [absenceError, setAbsenceError] = useState("");
     
     const [formData, setFormData] = useState({ 
         name: "", 
@@ -108,6 +118,47 @@ export default function ChildManagement() {
         setShowForm(true);
     };
 
+    const openAbsenceModal = async (child: Child) => {
+        setAbsenceModalChild(child);
+        setAbsenceError("");
+        setAbsenceForm({ date: "", session_type: "both", reason: "" });
+        try {
+            const data = await getAbsences(child.id);
+            setAbsences(data);
+        } catch (err) {
+            setAbsences([]);
+        }
+    };
+
+    const handleSubmitAbsence = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!absenceModalChild) return;
+        setAbsenceLoading(true);
+        setAbsenceError("");
+        try {
+            await markAbsent(absenceModalChild.id, absenceForm.date, absenceForm.session_type, absenceForm.reason || undefined);
+            setAbsenceForm({ date: "", session_type: "both", reason: "" });
+            const data = await getAbsences(absenceModalChild.id);
+            setAbsences(data);
+        } catch (err: any) {
+            setAbsenceError("Failed to save absence. Please try again.");
+        } finally {
+            setAbsenceLoading(false);
+        }
+    };
+
+    const handleCancelAbsence = async (studentId: number, date: string) => {
+        try {
+            await cancelAbsence(studentId, date);
+            const data = await getAbsences(studentId);
+            setAbsences(data);
+        } catch (err) {
+            alert("Failed to cancel absence.");
+        }
+    };
+
+
+
     if (loading) return (
         <div className="flex min-h-[400px] flex-col items-center justify-center">
             <div className="h-14 w-14 animate-spin rounded-full border-[6px] border-slate-100 border-t-emerald-500 shadow-xl" />
@@ -117,6 +168,121 @@ export default function ChildManagement() {
 
     return (
         <div className="space-y-12 animate-in fade-in duration-700 font-sans">
+            {/* Absence Management Modal */}
+            {absenceModalChild && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setAbsenceModalChild(null)} />
+                    <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-[2.5rem] bg-white shadow-2xl animate-in zoom-in-95 duration-500">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/60 px-8 py-6">
+                            <div className="flex items-center gap-4">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm border border-slate-100 text-amber-500">
+                                    <Calendar size={22} />
+                                </div>
+                                <div>
+                                    <h2 className="text-xl font-black text-slate-900 tracking-tight">Manage Absences</h2>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{absenceModalChild.name}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => setAbsenceModalChild(null)} className="h-10 w-10 rounded-2xl bg-white border border-slate-100 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-all">
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className="max-h-[70vh] overflow-y-auto">
+                            {/* Mark New Absence Form */}
+                            <div className="px-8 py-6 border-b border-slate-100">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Mark New Absence</p>
+                                <form onSubmit={handleSubmitAbsence} className="space-y-4">
+                                    {/* Date */}
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Date</label>
+                                        <input
+                                            required
+                                            type="date"
+                                            value={absenceForm.date}
+                                            onChange={e => setAbsenceForm(f => ({ ...f, date: e.target.value }))}
+                                            className="w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 py-3 text-sm font-bold text-slate-800 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-50 transition-all"
+                                        />
+                                    </div>
+                                    {/* Session Type */}
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Journey</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {["morning", "afternoon", "both"].map(s => (
+                                                <button
+                                                    key={s}
+                                                    type="button"
+                                                    onClick={() => setAbsenceForm(f => ({ ...f, session_type: s }))}
+                                                    className={`rounded-2xl py-2.5 text-xs font-black transition-all capitalize border ${absenceForm.session_type === s ? "bg-amber-500 text-white border-amber-500 shadow-lg shadow-amber-100" : "bg-white text-slate-500 border-slate-100 hover:border-amber-300 hover:text-amber-600"}`}
+                                                >
+                                                    {s === "morning" ? "🌅 Morning" : s === "afternoon" ? "🌇 Afternoon" : "📅 Both"}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* Reason */}
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Reason (optional)</label>
+                                        <input
+                                            type="text"
+                                            value={absenceForm.reason}
+                                            onChange={e => setAbsenceForm(f => ({ ...f, reason: e.target.value }))}
+                                            placeholder="e.g. Doctor's appointment"
+                                            className="w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 py-3 text-sm font-bold text-slate-800 outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-50 transition-all"
+                                        />
+                                    </div>
+                                    {absenceError && <p className="text-xs font-bold text-red-500">{absenceError}</p>}
+                                    <button
+                                        type="submit"
+                                        disabled={absenceLoading}
+                                        className="w-full rounded-2xl bg-amber-500 py-3.5 text-sm font-black text-white shadow-xl shadow-amber-100 hover:bg-amber-600 transition-all disabled:opacity-50 active:scale-95"
+                                    >
+                                        {absenceLoading ? "Saving..." : "Save Absence"}
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* Existing Absences List */}
+                            <div className="px-8 py-6">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4">Recorded Absences</p>
+                                {absences.length === 0 ? (
+                                    <div className="py-8 text-center">
+                                        <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-3 text-slate-200">
+                                            <Calendar size={24} />
+                                        </div>
+                                        <p className="text-xs font-bold text-slate-400">No absences recorded yet.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {absences.map(ab => (
+                                            <div key={ab.id} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50/50 px-5 py-3 group hover:bg-white hover:shadow-soft transition-all">
+                                                <div>
+                                                    <p className="text-sm font-black text-slate-800">{ab.absence_date}</p>
+                                                    <div className="flex items-center gap-2 mt-0.5">
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${ab.session_type === "morning" ? "bg-amber-100 text-amber-700" : ab.session_type === "afternoon" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"}`}>
+                                                            {ab.session_type}
+                                                        </span>
+                                                        {ab.reason && <span className="text-[10px] text-slate-400 font-bold truncate">{ab.reason}</span>}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => handleCancelAbsence(absenceModalChild.id, ab.absence_date)}
+                                                    title="Cancel this absence"
+                                                    className="h-9 w-9 rounded-xl bg-white border border-slate-100 flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition-all opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header Area */}
             <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -329,7 +495,13 @@ export default function ChildManagement() {
                                         {child.route_name || `Driver Link: ${child.driver_id}` || "Encryption Offline"}
                                     </span>
                                 </div>
-                                <ArrowRight size={18} className="text-slate-100 group-hover:text-emerald-500 group-hover:translate-x-1 transition-all" />
+                                <button
+                                    onClick={() => openAbsenceModal(child)}
+                                    className="flex items-center gap-2 rounded-2xl bg-amber-50 border border-amber-100 px-4 py-2 text-xs font-black text-amber-700 hover:bg-amber-100 hover:border-amber-200 transition-all active:scale-95"
+                                >
+                                    <Calendar size={14} />
+                                    Absences
+                                </button>
                             </div>
                         </div>
                     ))}

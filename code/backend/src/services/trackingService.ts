@@ -29,4 +29,23 @@ export async function processLocationUpdate(
       timestamp,
     }
   );
+  emitToRoom(
+    journeyRoom(payload.journeyId),
+    "location_broadcast",
+    {
+      journeyId: payload.journeyId,
+      lat: payload.lat,
+      lng: payload.lng,
+      timestamp,
+    }
+  );
+  emitToRoom(
+    journeyRoom(payload.journeyId),
+    "location_update",
+    {
+      lat: payload.lat,
+      lng: payload.lng,
+      timestamp,
+    }
+  );
 }

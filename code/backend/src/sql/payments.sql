@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS payment_settings (
         ON DELETE CASCADE
 );
 
+-- Ensure auto_generate_day column exists in case the table was created in an older migration
+ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS auto_generate_day INTEGER DEFAULT NULL;
+
 CREATE TABLE IF NOT EXISTS payments (
     id SERIAL PRIMARY KEY,
     student_id INTEGER NOT NULL,

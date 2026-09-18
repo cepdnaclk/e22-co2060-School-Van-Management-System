@@ -95,7 +95,19 @@ export async function getStudentsForJourney(journeyId: number): Promise<any[]> {
        s.id AS student_id,
        s.name AS student_name,
        sb.boarded_at,
-       sd.dropped_at
+       sd.dropped_at,
+       EXISTS (
+         SELECT 1 FROM student_absences sa
+         WHERE sa.student_id = s.id
+           AND sa.absence_date = j.started_at::DATE
+           AND (
+             sa.session_type = 'both'
+             OR sa.session_type = CASE
+               WHEN j.status IN ('pickup_started', 'heading_to_school', 'arrived_at_school') THEN 'morning'
+               ELSE 'afternoon'
+             END
+           )
+       ) AS is_absent
      FROM journeys j
      JOIN routes r ON r.id = j.route_id
      JOIN route_stops rs ON rs.route_id = r.id

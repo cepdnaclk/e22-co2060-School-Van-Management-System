@@ -78,12 +78,22 @@ export async function submitOnboarding(req: AuthenticatedRequest, res: Response)
     // 3. Link Vehicle to Driver
     await driverModel.updateDriver(driver.id!, { vehicle_id: vehicle.id }, client);
 
+    // Query old route stops before deleting them so we can migrate student mappings
+    const oldStopsRes = await client.query(
+      `SELECT rs.id, rs.stop_name 
+       FROM route_stops rs
+       JOIN routes r ON rs.route_id = r.id
+       WHERE r.driver_id = $1`,
+      [driver.id!]
+    );
+    const oldStops = oldStopsRes.rows;
+
     // 4. Clear existing routes (to replace with new one)
     await routeModel.deleteRoutesByDriverId(driver.id!, client);
     console.log(`[Onboarding] Existing routes cleared for driver ${driver.id}`);
 
     // 5. Create Route
-    await routeModel.createRoute({
+    const createdRoute = await routeModel.createRoute({
       route_name: `Standard Daily Route`,
       driver_id: driver.id!,
       vehicle_id: vehicle.id!,
@@ -96,6 +106,27 @@ export async function submitOnboarding(req: AuthenticatedRequest, res: Response)
       }))
     }, client);
     console.log(`[Onboarding] Route and stops created`);
+
+    // Migrate student stop mappings from old stop IDs to new stop IDs by matching stop names
+    if (createdRoute.stops && createdRoute.stops.length > 0 && oldStops.length > 0) {
+      for (const oldStop of oldStops) {
+        const matchingNewStop = (createdRoute.stops as any[]).find(
+          (ns: any) => ns.stop_name.toLowerCase().trim() === oldStop.stop_name.toLowerCase().trim()
+        );
+        if (matchingNewStop) {
+          // Update students table
+          await client.query(
+            `UPDATE students SET pickup_stop_id = $1 WHERE pickup_stop_id = $2`,
+            [matchingNewStop.id, oldStop.id]
+          );
+          await client.query(
+            `UPDATE students SET dropoff_stop_id = $1 WHERE dropoff_stop_id = $2`,
+            [matchingNewStop.id, oldStop.id]
+          );
+          console.log(`[Onboarding] Migrated students from old stop ID ${oldStop.id} to new stop ID ${matchingNewStop.id} (${oldStop.stop_name})`);
+        }
+      }
+    }
 
     await client.query("COMMIT");
     console.log(`[Onboarding] Success for user ${userId}`);

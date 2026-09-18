@@ -8,6 +8,8 @@ router.get("/children", parentController.getChildren);
 router.post("/children", parentController.registerChild);
 router.put("/children/:id", parentController.updateChild);
 router.post("/children/:id/absent", parentController.markAbsent);
+router.get("/children/:id/absences", parentController.getAbsences);
+router.delete("/children/:id/absences/:date", parentController.cancelAbsence);
 router.get("/journey-history", parentController.getHistory);
 router.get("/emergency-contacts", parentController.getEmergencyContacts);
 router.get("/children/:id/status", parentController.getChildStatus);

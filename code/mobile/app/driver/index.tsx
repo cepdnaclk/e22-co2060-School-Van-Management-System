@@ -201,15 +201,20 @@ export default function DriverDashboard() {
             headers: { Authorization: `Bearer ${session.token}` }
           });
           const obData = await obRes.json();
-          if (obRes.ok && obData.completed) {
-            setLicenseNumber(obData.licenseNumber || "");
-            setVehicleNumber(obData.vehicleDetails?.registrationNumber || "");
-            setVehicleType(obData.vehicleDetails?.type || "van");
-            setVehicleCapacity(String(obData.vehicleDetails?.capacity || "12"));
-            setRouteName(obData.routeName || "");
-            setOnboardingCompleted(true);
-          } else {
-            setOnboardingCompleted(false);
+          if (obRes.ok) {
+            if (obData.driverId) {
+              setRealDriverId(obData.driverId);
+            }
+            if (obData.completed) {
+              setLicenseNumber(obData.licenseNumber || "");
+              setVehicleNumber(obData.vehicleDetails?.registrationNumber || "");
+              setVehicleType(obData.vehicleDetails?.type || "van");
+              setVehicleCapacity(String(obData.vehicleDetails?.capacity || "12"));
+              setRouteName(obData.routeName || "");
+              setOnboardingCompleted(true);
+            } else {
+              setOnboardingCompleted(false);
+            }
           }
         } catch {}
 

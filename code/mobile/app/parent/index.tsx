@@ -10,7 +10,8 @@ import {
   ScrollView, 
   Modal, 
   TextInput,
-  Switch
+  Switch,
+  Linking
 } from "react-native";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -118,6 +119,7 @@ export default function ParentDashboard() {
   const [vanLocation, setVanLocation] = useState<{ latitude: number; longitude: number } | null>(null);
   const [childStatus, setChildStatus] = useState<any>(null);
   const [sosAlert, setSosAlert] = useState<string | null>(null);
+  const [emergencyContacts, setEmergencyContacts] = useState<any[]>([]);
 
   // States: Tab 2 (Children & Registration)
   const [children, setChildren] = useState<Child[]>([]);
@@ -211,11 +213,23 @@ export default function ParentDashboard() {
         });
         setSocket(socketCon);
 
-        // Fetch children
-        const childrenRes = await fetch(`${API_BASE_URL}/parent/children`, {
-          headers: { Authorization: `Bearer ${session.token}` }
-        });
+        // Fetch children & emergency contacts in parallel
+        const [childrenRes, contactsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/parent/children`, {
+            headers: { Authorization: `Bearer ${session.token}` }
+          }),
+          fetch(`${API_BASE_URL}/parent/emergency-contacts`, {
+            headers: { Authorization: `Bearer ${session.token}` }
+          })
+        ]);
+
         const childrenData = await childrenRes.json().catch(() => []);
+        const contactsData = await contactsRes.json().catch(() => []);
+
+        if (contactsRes.ok) {
+          setEmergencyContacts(contactsData);
+        }
+
         if (childrenRes.ok && childrenData.length > 0) {
           setChildren(childrenData);
           
@@ -228,6 +242,7 @@ export default function ParentDashboard() {
           if (journeyRes.ok && journeyData.journeyId) {
             setChildStatus(journeyData);
             socketCon.emit("join_journey", journeyData.journeyId);
+            socketCon.emit("tracking:subscribe-journey", { journeyId: journeyData.journeyId });
           }
         }
       } catch (err) {
@@ -241,16 +256,23 @@ export default function ParentDashboard() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("location_update", (coords: any) => {
+    const handleLocation = (coords: any) => {
       setVanLocation({
         latitude: Number(coords.lat),
         longitude: Number(coords.lng)
       });
-    });
+    };
 
-    socket.on("sos_alert", (alert: any) => {
+    socket.on("location_update", handleLocation);
+    socket.on("location_broadcast", handleLocation);
+    socket.on("tracking:location-broadcast", handleLocation);
+
+    const handleSos = (alert: any) => {
       setSosAlert(alert.message || "SOS alert flagged by driver! Keep updated.");
-    });
+    };
+
+    socket.on("sos_alert", handleSos);
+    socket.on("sos:alert", handleSos);
 
     socket.on("sos_cleared", () => {
       setSosAlert(null);
@@ -267,8 +289,11 @@ export default function ParentDashboard() {
     });
 
     return () => {
-      socket.off("location_update");
-      socket.off("sos_alert");
+      socket.off("location_update", handleLocation);
+      socket.off("location_broadcast", handleLocation);
+      socket.off("tracking:location-broadcast", handleLocation);
+      socket.off("sos_alert", handleSos);
+      socket.off("sos:alert", handleSos);
       socket.off("sos_cleared");
       socket.off("student:boarded");
       socket.off("student:dropped");
@@ -574,6 +599,63 @@ export default function ParentDashboard() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      {/* SOS Emergency Overlay Modal */}
+      <Modal
+        visible={!!sosAlert}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setSosAlert(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.sosModalContainer}>
+            <View style={styles.sosModalHeader}>
+              <View style={styles.sosModalHeaderIconWrapper}>
+                <ShieldAlert size={28} color="#FFFFFF" />
+              </View>
+              <View>
+                <Text style={styles.sosModalHeaderSub}>Emergency Alert</Text>
+                <Text style={styles.sosModalHeaderTitle}>SOS Triggered</Text>
+              </View>
+            </View>
+            <View style={styles.sosModalBody}>
+              <Text style={styles.sosModalMessage}>{sosAlert}</Text>
+              <Text style={styles.sosModalSubText}>
+                Please check on your child immediately. Live tracking is active.
+              </Text>
+            </View>
+            <View style={styles.sosModalFooter}>
+              {emergencyContacts && emergencyContacts.length > 0 ? (
+                <TouchableOpacity
+                  style={[styles.sosModalBtn, styles.sosModalCallBtn]}
+                  onPress={() => {
+                    const phoneNum = emergencyContacts[0]?.driver_phone || emergencyPhone;
+                    Linking.openURL(`tel:${phoneNum}`).catch(() => {});
+                  }}
+                >
+                  <Phone size={18} color="#FFFFFF" />
+                  <Text style={styles.sosModalBtnText}>Call Driver</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.sosModalBtn, styles.sosModalCallBtn]}
+                  onPress={() => {
+                    Linking.openURL(`tel:${emergencyPhone}`).catch(() => {});
+                  }}
+                >
+                  <Phone size={18} color="#FFFFFF" />
+                  <Text style={styles.sosModalBtnText}>Call Emergency</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.sosModalBtn, styles.sosModalAckBtn]}
+                onPress={() => setSosAlert(null)}
+              >
+                <Text style={[styles.sosModalBtnText, { color: "#475569" }]}>Acknowledge</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       {/* 1. Header Area */}
       <View style={[styles.header, { backgroundColor: themeColors.headerBg, borderColor: themeColors.border }]}>
         <View>
@@ -1612,5 +1694,86 @@ const globalStyles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.5,
-  }
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(127, 29, 29, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  sosModalContainer: {
+    backgroundColor: "#FFFFFF",
+    width: "100%",
+    maxWidth: 400,
+    borderRadius: 24,
+    overflow: "hidden",
+  },
+  sosModalHeader: {
+    backgroundColor: "#DC2626",
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  sosModalHeaderIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sosModalHeaderSub: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#FCA5A5",
+    textTransform: "uppercase",
+    letterSpacing: 1.5,
+  },
+  sosModalHeaderTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    marginTop: 2,
+  },
+  sosModalBody: {
+    padding: 24,
+  },
+  sosModalMessage: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1E293B",
+    lineHeight: 22,
+  },
+  sosModalSubText: {
+    fontSize: 11,
+    color: "#64748B",
+    marginTop: 8,
+    lineHeight: 16,
+  },
+  sosModalFooter: {
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+    gap: 12,
+  },
+  sosModalBtn: {
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  sosModalCallBtn: {
+    backgroundColor: "#DC2626",
+  },
+  sosModalAckBtn: {
+    backgroundColor: "#F1F5F9",
+  },
+  sosModalBtnText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
 });

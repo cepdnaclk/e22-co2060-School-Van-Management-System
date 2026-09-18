@@ -158,6 +158,14 @@ export function registerTrackingSocket(io: Server): void {
       }
     );
 
+    socket.on("join-room", (room: string) => {
+      socket.join(room);
+    });
+
+    socket.on("join_journey", (journeyId: number) => {
+      socket.join(journeyRoom(journeyId));
+    });
+
     socket.on("disconnect", () => {
       console.log(
         `Socket disconnected: socket=${socket.id}, user=${socket.user?.id}, role=${socket.user?.role}`

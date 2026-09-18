@@ -96,11 +96,21 @@ export const triggerSOS = async (driverId: number): Promise<{ message: string; r
           message: SOS_MESSAGE,
           timestamp,
         });
+        emitToUser(parentUserId, "sos_alert", {
+          journeyId: journey.id,
+          message: SOS_MESSAGE,
+          timestamp,
+        });
       })
     );
 
     // 4. Also broadcast to the journey room (for any admin / observer)
     emitToRoom(journeyRoom(journey.id), "sos:alert", {
+      journeyId: journey.id,
+      message: SOS_MESSAGE,
+      timestamp,
+    });
+    emitToRoom(journeyRoom(journey.id), "sos_alert", {
       journeyId: journey.id,
       message: SOS_MESSAGE,
       timestamp,
