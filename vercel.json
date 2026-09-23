@@ -1,8 +1,15 @@
 {
+  "buildCommand": "bash build.sh",
+  "outputDirectory": "dist",
+  "framework": null,
   "rewrites": [
     {
       "source": "/api/(.*)",
       "destination": "https://school-van-backend.onrender.com/api/$1"
+    },
+    {
+      "source": "/portal/(.*)",
+      "destination": "/portal/index.html"
     },
     {
       "source": "/(.*)",

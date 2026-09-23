@@ -53,7 +53,7 @@ function RoleHomeRedirect() {
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter basename="/portal">
         <Routes>
           {/* root redirect to appropriate dashboard or login */}
           <Route path="/" element={<RoleHomeRedirect />} />
