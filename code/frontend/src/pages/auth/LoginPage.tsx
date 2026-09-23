@@ -48,7 +48,7 @@ function LoginPage() {
       const roleHome: Record<string, string> = {
         admin: "/admin/dashboard",
         driver: "/driver",
-        parent: "/tracking",
+        parent: "/parent",
       };
       navigate(roleHome[session.user.role] || "/login", { replace: true });
     }
@@ -87,7 +87,7 @@ function LoginPage() {
       const roleHome: Record<string, string> = {
         admin: "/admin/dashboard",
         driver: "/driver",
-        parent: "/tracking",
+        parent: "/parent",
       };
       navigate(roleHome[nextSession.user.role] || "/login", { replace: true });
     } catch (error: any) {

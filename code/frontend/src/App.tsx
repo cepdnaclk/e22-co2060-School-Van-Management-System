@@ -21,16 +21,43 @@ import PaymentSettingsPage from "./pages/driver/PaymentSettingsPage";
 import StudentPaymentDashboard from "./pages/driver/StudentPaymentDashboard";
 import DriverPaymentHistoryPage from "./pages/driver/DriverPaymentHistoryPage";
 import SidebarLayout from "./components/SidebarLayout";
-import { AuthProvider } from "./features/auth/AuthContext";
+import { AuthProvider, useAuth } from "./features/auth/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import ProfilePage from "./pages/account/ProfilePage";
 import SettingsPage from "./pages/account/SettingsPage";
+
+function RoleHomeRedirect() {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#fdfdfc]">
+        <div className="animate-spin h-8 w-8 rounded-full border-4 border-slate-200 border-t-emerald-600" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const roleHome: Record<string, string> = {
+    admin: "/admin/dashboard",
+    driver: "/driver",
+    parent: "/parent",
+  };
+
+  return <Navigate to={roleHome[user.role] || "/login"} replace />;
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* root redirect to appropriate dashboard or login */}
+          <Route path="/" element={<RoleHomeRedirect />} />
+
           {/* auth login page (no sidebar) */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -45,9 +72,6 @@ export default function App() {
               <SidebarLayout />
             </ProtectedRoute>
           }>
-            {/* default redirect handled by ProtectedRoute, but keep a fallback */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             
@@ -148,8 +172,8 @@ export default function App() {
           </Route>
 
 
-          {/* catch-all fallback to login */}
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* catch-all fallback to appropriate role home or login */}
+          <Route path="*" element={<RoleHomeRedirect />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

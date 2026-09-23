@@ -35,7 +35,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     const roleHome: Record<string, string> = {
       admin: "/admin/dashboard",
       driver: "/driver",
-      parent: "/tracking",
+      parent: "/parent",
     };
     return <Navigate to={roleHome[user.role] || "/login"} replace />;
   }

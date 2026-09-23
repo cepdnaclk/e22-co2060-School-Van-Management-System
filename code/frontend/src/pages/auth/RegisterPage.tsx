@@ -1,4 +1,4 @@
-import { FormEvent, useState, useRef } from "react";
+import { FormEvent, useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../features/auth/AuthContext";
 import { API_BASE_URL } from "../../config/api";
@@ -68,7 +68,18 @@ function InputField({ label, id, type = "text", value, onChange, placeholder, re
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, session } = useAuth();
+
+  useEffect(() => {
+    if (session) {
+      const roleHome: Record<string, string> = {
+        admin: "/admin/dashboard",
+        driver: "/driver",
+        parent: "/parent",
+      };
+      navigate(roleHome[session.user.role] || "/parent", { replace: true });
+    }
+  }, [session, navigate]);
 
   const [role, setRole] = useState<"parent" | "driver" | null>(null);
   const [driverStep, setDriverStep] = useState(1);
