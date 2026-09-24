@@ -10,17 +10,17 @@ The application is built using a modern, full-stack TypeScript architecture.
 
 ```mermaid
 graph TD
-    subgraph Frontend Applications
+    subgraph Frontend["Frontend Applications"]
         Web["Web App<br/>React/Vite"]
         Mobile["Mobile App<br/>React Native"]
     end
 
-    subgraph Backend Services
+    subgraph Backend["Backend Services"]
         API["Express REST API<br/>Node.js/TypeScript"]
         WS["Socket.io Server<br/>Real-time Tracking"]
     end
 
-    subgraph Data Layer
+    subgraph Data["Data Layer"]
         DB[("PostgreSQL<br/>Database")]
     end
 
